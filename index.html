@@ -1,0 +1,1774 @@
+2<!DOCTYPE html>
+<html>
+<head>
+    <title>Adaptive Outpost</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;700&display=swap');
+        
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; 
+            touch-action: none; 
+            -ms-touch-action: none;
+            background: #1a1a1a;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        
+        /* UI Overlay */
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .ui-overlay > * {
+            pointer-events: auto;
+        }
+        
+        /* HUD */
+        .hud {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            color: white;
+            font-size: 28px;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        
+        .health-bar {
+            background: rgba(0,0,0,0.7);
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 3px solid #4ac93a;
+            min-width: 140px;
+        }
+        
+        .health-fill {
+            height: 12px;
+            background: #4ac93a;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            margin-top: 6px;
+            box-shadow: 0 0 8px rgba(74, 201, 58, 0.5);
+        }
+        
+        .stats {
+            background: rgba(0,0,0,0.7);
+            padding: 10px 16px;
+            border-radius: 8px;
+            text-align: right;
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        
+        /* Mobile Controls */
+        .mobile-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .joystick-area {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 50%;
+            height: 40%;
+            pointer-events: auto;
+        }
+        
+        .joystick-base {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: 3px solid rgba(255,255,255,0.3);
+            display: none;
+        }
+        
+        .joystick-stick {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            border: 3px solid rgba(255,255,255,0.6);
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .action-buttons {
+            position: absolute;
+            right: 16px;
+            bottom: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            pointer-events: auto;
+        }
+        
+        .action-btn {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.6);
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
+        }
+        
+        .action-btn:active {
+            transform: scale(0.95);
+            background: rgba(255,255,255,0.4);
+        }
+        
+        .action-btn.sprint {
+            background: rgba(255,200,0,0.3);
+            border-color: rgba(255,200,0,0.6);
+        }
+        
+        .action-btn.sprint.active {
+            background: rgba(255,200,0,0.5);
+            border-color: rgba(255,200,0,0.9);
+        }
+        
+        .action-btn.attack {
+            background: rgba(255,100,100,0.3);
+            border-color: rgba(255,100,100,0.6);
+        }
+        
+        .action-btn.hide {
+            background: rgba(100,200,100,0.3);
+            border-color: rgba(100,200,100,0.6);
+        }
+        
+        /* Game Over Screen */
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            pointer-events: auto;
+        }
+        
+        .game-over.show {
+            display: flex;
+        }
+        
+        .game-over h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 56px;
+            font-weight: 900;
+            margin: 0 0 24px 0;
+            text-shadow: 4px 4px 8px rgba(0,0,0,0.9);
+            letter-spacing: 2px;
+        }
+        
+        .game-over.win h1 {
+            color: #4ac93a;
+        }
+        
+        .game-over.lose h1 {
+            color: #c93a3a;
+        }
+        
+        .game-over p {
+            font-size: 28px;
+            font-weight: 600;
+            margin: 12px 0;
+            opacity: 0.95;
+            line-height: 1.5;
+        }
+        
+        .restart-btn {
+            margin-top: 40px;
+            padding: 20px 56px;
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            background: #4a7c9e;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 240px;
+            min-height: 96px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        
+        .restart-btn:hover {
+            background: #5a8cae;
+            transform: scale(1.05);
+        }
+        
+        .restart-btn:active {
+            transform: scale(0.98);
+        }
+        
+        /* Desktop Controls Help */
+        .controls-help {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            background: rgba(0,0,0,0.7);
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+            line-height: 1.6;
+        }
+        
+        .controls-help.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="ui-overlay">
+        <!-- HUD -->
+        <div class="hud">
+            <div class="health-bar">
+                <div>Health</div>
+                <div class="health-fill" id="healthFill" style="width: 120px;"></div>
+            </div>
+            <div class="stats">
+                <div id="timeDisplay">Time: 0s</div>
+                <div id="detectionDisplay">Detected: 0</div>
+            </div>
+        </div>
+        
+        <!-- Mobile Controls -->
+        <div class="mobile-controls" id="mobileControls" style="display: none;">
+            <div class="joystick-area" id="joystickArea">
+                <div class="joystick-base" id="joystickBase">
+                    <div class="joystick-stick" id="joystickStick"></div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button class="action-btn sprint" id="sprintBtn">SPRINT</button>
+                <button class="action-btn attack" id="attackBtn">ATTACK</button>
+                <button class="action-btn hide" id="hideBtn" style="display: none;">HIDE</button>
+            </div>
+        </div>
+        
+        <!-- Desktop Controls Help -->
+        <div class="controls-help" id="controlsHelp">
+            <strong>Controls:</strong><br>
+            WASD/Arrows: Move<br>
+            Shift: Sprint<br>
+            Space: Attack<br>
+            E: Hide
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div class="game-over" id="gameOver">
+            <h1 id="gameOverTitle">Mission Complete!</h1>
+            <p id="gameOverStats"></p>
+            <button class="restart-btn" id="restartBtn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        /* ==================================================
+         * GAME OVERVIEW: Adaptive Outpost - Top-down stealth-action game
+         * Player infiltrates enemy base with AI guards using FSM, vision/hearing,
+         * pathfinding, shared alerts, and adaptive behavior.
+         * 
+         * GAME STATE SHAPE: window.gameConfig = {
+         *   guards: { count, speed, visionRange, visionAngle, hearingRange },
+         *   player: { speed, sprintSpeed, health, attackDamage },
+         *   ai: { alertRadius, searchDuration, adaptiveSpeed },
+         *   environment: { hidingSpotCount, reinforcementCount }
+         * }
+         * ==================================================
+         */
+
+        // ===== CONSTANTS =====
+        const WORLD_WIDTH = 2400;
+        const WORLD_HEIGHT = 1600;
+        const VIEWPORT_WIDTH = 720;
+        const VIEWPORT_HEIGHT = 1280;
+        const GRID_SIZE = 32;
+        const MAX_DELTA = 0.11;
+
+        // ===== ASSET CACHE =====
+        const assetCache = {};
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffers = {};
+
+        // ===== GAME STATE =====
+        let canvas, ctx;
+        let currentMode = 'play';
+        let gameRunning = false;
+        let lastTime = 0;
+
+        // Player state
+        let player = {
+            x: 200,
+            y: 1400,
+            width: 32,
+            height: 32,
+            vx: 0,
+            vy: 0,
+            health: 100,
+            maxHealth: 100,
+            facing: 0,
+            sprinting: false,
+            attacking: false,
+            attackCooldown: 0,
+            hiding: false,
+            currentHidingSpot: null
+        };
+
+        // Camera state
+        let camera = {
+            x: 0,
+            y: 0
+        };
+
+        // Input state
+        let keys = {};
+        let joystick = {
+            active: false,
+            baseX: 0,
+            baseY: 0,
+            stickX: 0,
+            stickY: 0,
+            touchId: null
+        };
+        let sprintPressed = false;
+        let attackPressed = false;
+        let hidePressed = false;
+
+        // Game world
+        let walls = [];
+        let hidingSpots = [];
+        let guards = [];
+        let alarmTerminal = null;
+        let extractionZone = null;
+        let navigationGrid = [];
+        let alarmActive = false;
+        let alarmCooldown = 0;
+
+        // Adaptive AI metrics
+        let adaptiveMetrics = {
+            timeUndetected: 0,
+            guardsDefeated: 0,
+            detectionCount: 0,
+            survivalTime: 0,
+            lastAdaptiveUpdate: 0
+        };
+
+        // Noise events
+        let noiseEvents = [];
+
+        // ===== UTILITY FUNCTIONS =====
+        function distance(x1, y1, x2, y2) {
+            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        }
+
+        function angleBetween(x1, y1, x2, y2) {
+            return Math.atan2(y2 - y1, x2 - x1);
+        }
+
+        function normalizeAngle(angle) {
+            while (angle > Math.PI) angle -= Math.PI * 2;
+            while (angle < -Math.PI) angle += Math.PI * 2;
+            return angle;
+        }
+
+        function angleInCone(angle, facing, coneAngle) {
+            const diff = normalizeAngle(angle - facing);
+            return Math.abs(diff) <= coneAngle / 2;
+        }
+
+        function rectIntersect(r1, r2) {
+            return r1.x < r2.x + r2.width &&
+                   r1.x + r1.width > r2.x &&
+                   r1.y < r2.y + r2.height &&
+                   r1.y + r1.height > r2.y;
+        }
+
+        function lineIntersectsRect(x1, y1, x2, y2, rect) {
+            // Check if line segment intersects rectangle
+            const left = rect.x;
+            const right = rect.x + rect.width;
+            const top = rect.y;
+            const bottom = rect.y + rect.height;
+
+            // Check intersection with each edge
+            if (lineIntersectsLine(x1, y1, x2, y2, left, top, right, top)) return true;
+            if (lineIntersectsLine(x1, y1, x2, y2, right, top, right, bottom)) return true;
+            if (lineIntersectsLine(x1, y1, x2, y2, right, bottom, left, bottom)) return true;
+            if (lineIntersectsLine(x1, y1, x2, y2, left, bottom, left, top)) return true;
+
+            return false;
+        }
+
+        function lineIntersectsLine(x1, y1, x2, y2, x3, y3, x4, y4) {
+            const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+            if (denom === 0) return false;
+
+            const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
+            const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
+
+            return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
+        }
+
+        function playSound(bufferId, volume = 1.0, loop = false) {
+            if (!audioBuffers[bufferId]) return;
+
+            const source = audioContext.createBufferSource();
+            const gainNode = audioContext.createGain();
+            
+            source.buffer = audioBuffers[bufferId];
+            source.loop = loop;
+            gainNode.gain.value = volume;
+            
+            source.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            source.start(0);
+            
+            return source;
+        }
+
+        // ===== PATHFINDING (A*) =====
+        function createNavigationGrid() {
+            const cols = Math.ceil(WORLD_WIDTH / GRID_SIZE);
+            const rows = Math.ceil(WORLD_HEIGHT / GRID_SIZE);
+            navigationGrid = [];
+
+            for (let y = 0; y < rows; y++) {
+                navigationGrid[y] = [];
+                for (let x = 0; x < cols; x++) {
+                    const cellX = x * GRID_SIZE;
+                    const cellY = y * GRID_SIZE;
+                    const cellRect = { x: cellX, y: cellY, width: GRID_SIZE, height: GRID_SIZE };
+
+                    // Check if cell intersects with any wall
+                    let walkable = true;
+                    for (const wall of walls) {
+                        if (rectIntersect(cellRect, wall)) {
+                            walkable = false;
+                            break;
+                        }
+                    }
+
+                    navigationGrid[y][x] = { walkable, x, y };
+                }
+            }
+        }
+
+        function worldToGrid(x, y) {
+            return {
+                x: Math.floor(x / GRID_SIZE),
+                y: Math.floor(y / GRID_SIZE)
+            };
+        }
+
+        function gridToWorld(gx, gy) {
+            return {
+                x: gx * GRID_SIZE + GRID_SIZE / 2,
+                y: gy * GRID_SIZE + GRID_SIZE / 2
+            };
+        }
+
+        function findPath(startX, startY, endX, endY) {
+            const start = worldToGrid(startX, startY);
+            const end = worldToGrid(endX, endY);
+
+            if (!navigationGrid[start.y] || !navigationGrid[start.y][start.x] || 
+                !navigationGrid[end.y] || !navigationGrid[end.y][end.x]) {
+                return [];
+            }
+
+            if (!navigationGrid[start.y][start.x].walkable || 
+                !navigationGrid[end.y][end.x].walkable) {
+                return [];
+            }
+
+            const openSet = [start];
+            const closedSet = new Set();
+            const cameFrom = new Map();
+            const gScore = new Map();
+            const fScore = new Map();
+
+            const key = (node) => `${node.x},${node.y}`;
+            gScore.set(key(start), 0);
+            fScore.set(key(start), distance(start.x, start.y, end.x, end.y));
+
+            while (openSet.length > 0) {
+                // Find node with lowest fScore
+                let current = openSet[0];
+                let currentIdx = 0;
+                for (let i = 1; i < openSet.length; i++) {
+                    if (fScore.get(key(openSet[i])) < fScore.get(key(current))) {
+                        current = openSet[i];
+                        currentIdx = i;
+                    }
+                }
+
+                if (current.x === end.x && current.y === end.y) {
+                    // Reconstruct path
+                    const path = [];
+                    let curr = current;
+                    while (cameFrom.has(key(curr))) {
+                        const worldPos = gridToWorld(curr.x, curr.y);
+                        path.unshift(worldPos);
+                        curr = cameFrom.get(key(curr));
+                    }
+                    return path;
+                }
+
+                openSet.splice(currentIdx, 1);
+                closedSet.add(key(current));
+
+                // Check neighbors
+                const neighbors = [
+                    { x: current.x - 1, y: current.y },
+                    { x: current.x + 1, y: current.y },
+                    { x: current.x, y: current.y - 1 },
+                    { x: current.x, y: current.y + 1 },
+                    { x: current.x - 1, y: current.y - 1 },
+                    { x: current.x + 1, y: current.y - 1 },
+                    { x: current.x - 1, y: current.y + 1 },
+                    { x: current.x + 1, y: current.y + 1 }
+                ];
+
+                for (const neighbor of neighbors) {
+                    if (neighbor.x < 0 || neighbor.y < 0 || 
+                        neighbor.y >= navigationGrid.length || 
+                        neighbor.x >= navigationGrid[0].length) {
+                        continue;
+                    }
+
+                    if (!navigationGrid[neighbor.y][neighbor.x].walkable) {
+                        continue;
+                    }
+
+                    if (closedSet.has(key(neighbor))) {
+                        continue;
+                    }
+
+                    const tentativeGScore = gScore.get(key(current)) + 
+                        distance(current.x, current.y, neighbor.x, neighbor.y);
+
+                    if (!openSet.some(n => n.x === neighbor.x && n.y === neighbor.y)) {
+                        openSet.push(neighbor);
+                    } else if (tentativeGScore >= gScore.get(key(neighbor))) {
+                        continue;
+                    }
+
+                    cameFrom.set(key(neighbor), current);
+                    gScore.set(key(neighbor), tentativeGScore);
+                    fScore.set(key(neighbor), tentativeGScore + 
+                        distance(neighbor.x, neighbor.y, end.x, end.y));
+                }
+            }
+
+            return []; // No path found
+        }
+
+        // ===== GUARD AI =====
+        class Guard {
+            constructor(x, y, waypoints) {
+                this.x = x;
+                this.y = y;
+                this.width = 32;
+                this.height = 32;
+                this.waypoints = waypoints;
+                this.currentWaypoint = 0;
+                this.state = 'patrol';
+                this.facing = 0;
+                this.path = [];
+                this.pathIndex = 0;
+                this.target = null;
+                this.lastSeenPlayer = null;
+                this.searchTimer = 0;
+                this.stateTimer = 0;
+                this.health = 100;
+                this.defeated = false;
+                this.alertCooldown = 0;
+            }
+
+            update(deltaTime) {
+                if (this.defeated) return;
+
+                this.stateTimer += deltaTime;
+                this.alertCooldown = Math.max(0, this.alertCooldown - deltaTime);
+
+                switch (this.state) {
+                    case 'patrol':
+                        this.updatePatrol(deltaTime);
+                        break;
+                    case 'suspicious':
+                        this.updateSuspicious(deltaTime);
+                        break;
+                    case 'chase':
+                        this.updateChase(deltaTime);
+                        break;
+                    case 'search':
+                        this.updateSearch(deltaTime);
+                        break;
+                    case 'alert':
+                        this.updateAlert(deltaTime);
+                        break;
+                }
+
+                // Check if can see player
+                if (!player.hiding && this.canSeePlayer()) {
+                    if (this.state !== 'chase' && this.state !== 'alert') {
+                        this.setState('alert');
+                        this.lastSeenPlayer = { x: player.x, y: player.y, time: Date.now() };
+                        playSound('alert_sound', 0.5);
+                        adaptiveMetrics.detectionCount++;
+                    } else if (this.state === 'chase') {
+                        this.lastSeenPlayer = { x: player.x, y: player.y, time: Date.now() };
+                    }
+                }
+
+                // Check for noise events
+                for (const noise of noiseEvents) {
+                    const dist = distance(this.x, this.y, noise.x, noise.y);
+                    if (dist <= noise.radius && this.state === 'patrol') {
+                        this.setState('suspicious');
+                        this.target = { x: noise.x, y: noise.y };
+                        this.path = findPath(this.x, this.y, noise.x, noise.y);
+                        this.pathIndex = 0;
+                    }
+                }
+            }
+
+            setState(newState) {
+                this.state = newState;
+                this.stateTimer = 0;
+            }
+
+            updatePatrol(deltaTime) {
+                if (this.waypoints.length === 0) return;
+
+                const targetWaypoint = this.waypoints[this.currentWaypoint];
+                const dist = distance(this.x, this.y, targetWaypoint.x, targetWaypoint.y);
+
+                if (dist < 10) {
+                    this.currentWaypoint = (this.currentWaypoint + 1) % this.waypoints.length;
+                } else {
+                    const angle = angleBetween(this.x, this.y, targetWaypoint.x, targetWaypoint.y);
+                    this.facing = angle;
+                    const speed = window.gameConfig.guards.speed * this.getAdaptiveSpeedMultiplier();
+                    this.x += Math.cos(angle) * speed * deltaTime;
+                    this.y += Math.sin(angle) * speed * deltaTime;
+                }
+            }
+
+            updateSuspicious(deltaTime) {
+                if (!this.target) {
+                    this.setState('patrol');
+                    return;
+                }
+
+                if (this.path.length === 0) {
+                    this.path = findPath(this.x, this.y, this.target.x, this.target.y);
+                    this.pathIndex = 0;
+                }
+
+                if (this.path.length > 0 && this.pathIndex < this.path.length) {
+                    const targetPos = this.path[this.pathIndex];
+                    const dist = distance(this.x, this.y, targetPos.x, targetPos.y);
+
+                    if (dist < 10) {
+                        this.pathIndex++;
+                        if (this.pathIndex >= this.path.length) {
+                            this.setState('search');
+                            this.searchTimer = window.gameConfig.ai.searchDuration;
+                        }
+                    } else {
+                        const angle = angleBetween(this.x, this.y, targetPos.x, targetPos.y);
+                        this.facing = angle;
+                        const speed = window.gameConfig.guards.speed * 0.7;
+                        this.x += Math.cos(angle) * speed * deltaTime;
+                        this.y += Math.sin(angle) * speed * deltaTime;
+                    }
+                }
+            }
+
+            updateChase(deltaTime) {
+                if (!this.lastSeenPlayer) {
+                    this.setState('search');
+                    this.searchTimer = window.gameConfig.ai.searchDuration;
+                    return;
+                }
+
+                // Check if lost sight for too long
+                if (Date.now() - this.lastSeenPlayer.time > 2000) {
+                    this.setState('search');
+                    this.searchTimer = window.gameConfig.ai.searchDuration;
+                    return;
+                }
+
+                // Recalculate path periodically
+                if (this.stateTimer > 0.5) {
+                    this.path = findPath(this.x, this.y, this.lastSeenPlayer.x, this.lastSeenPlayer.y);
+                    this.pathIndex = 0;
+                    this.stateTimer = 0;
+                }
+
+                if (this.path.length > 0 && this.pathIndex < this.path.length) {
+                    const targetPos = this.path[this.pathIndex];
+                    const dist = distance(this.x, this.y, targetPos.x, targetPos.y);
+
+                    if (dist < 10) {
+                        this.pathIndex++;
+                    } else {
+                        const angle = angleBetween(this.x, this.y, targetPos.x, targetPos.y);
+                        this.facing = angle;
+                        const speed = window.gameConfig.guards.speed * 1.2 * this.getAdaptiveSpeedMultiplier();
+                        this.x += Math.cos(angle) * speed * deltaTime;
+                        this.y += Math.sin(angle) * speed * deltaTime;
+                    }
+                }
+
+                // Attack player if close
+                const distToPlayer = distance(this.x, this.y, player.x, player.y);
+                if (distToPlayer < 40) {
+                    player.health -= 10 * deltaTime;
+                }
+            }
+
+            updateSearch(deltaTime) {
+                this.searchTimer -= deltaTime;
+                this.facing += deltaTime * 2; // Rotate while searching
+
+                if (this.searchTimer <= 0) {
+                    this.setState('patrol');
+                    this.target = null;
+                    this.lastSeenPlayer = null;
+                }
+            }
+
+            updateAlert(deltaTime) {
+                // Broadcast alert to nearby guards
+                if (this.alertCooldown <= 0) {
+                    this.broadcastAlert();
+                    this.alertCooldown = 2.0;
+                }
+
+                if (this.stateTimer > 0.5) {
+                    this.setState('chase');
+                }
+            }
+
+            broadcastAlert() {
+                const alertRadius = window.gameConfig.ai.alertRadius * this.getAdaptiveAlertMultiplier();
+                for (const guard of guards) {
+                    if (guard === this || guard.defeated) continue;
+                    const dist = distance(this.x, this.y, guard.x, guard.y);
+                    if (dist <= alertRadius) {
+                        if (guard.state === 'patrol') {
+                            guard.setState('suspicious');
+                            guard.target = { x: this.lastSeenPlayer.x, y: this.lastSeenPlayer.y };
+                            guard.path = findPath(guard.x, guard.y, guard.target.x, guard.target.y);
+                            guard.pathIndex = 0;
+                        } else if (guard.state === 'suspicious' || guard.state === 'search') {
+                            guard.setState('chase');
+                            guard.lastSeenPlayer = { ...this.lastSeenPlayer };
+                        }
+                    }
+                }
+            }
+
+            canSeePlayer() {
+                const dist = distance(this.x, this.y, player.x, player.y);
+                const visionRange = window.gameConfig.guards.visionRange * this.getAdaptiveVisionMultiplier();
+                
+                if (dist > visionRange) return false;
+
+                const angle = angleBetween(this.x, this.y, player.x, player.y);
+                const visionAngle = window.gameConfig.guards.visionAngle * Math.PI / 180;
+                
+                if (!angleInCone(angle, this.facing, visionAngle)) return false;
+
+                // Line of sight check
+                for (const wall of walls) {
+                    if (lineIntersectsRect(this.x, this.y, player.x, player.y, wall)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            getAdaptiveSpeedMultiplier() {
+                const timeFactor = Math.min(1.5, 1 + (adaptiveMetrics.survivalTime / 60) * 0.05);
+                return timeFactor;
+            }
+
+            getAdaptiveVisionMultiplier() {
+                const timeFactor = Math.min(1.5, 1 + (adaptiveMetrics.survivalTime / 60) * 0.05);
+                const defeatedRatio = adaptiveMetrics.guardsDefeated / window.gameConfig.guards.count;
+                const cautionFactor = defeatedRatio > 0.5 ? 1.2 : 1.0;
+                return timeFactor * cautionFactor;
+            }
+
+            getAdaptiveAlertMultiplier() {
+                const aggressionRatio = adaptiveMetrics.guardsDefeated / 
+                    Math.max(1, adaptiveMetrics.guardsDefeated + adaptiveMetrics.timeUndetected / 60);
+                return aggressionRatio > 0.7 ? 1.3 : 1.0;
+            }
+
+            getStateColor() {
+                switch (this.state) {
+                    case 'patrol': return '#4ac93a';
+                    case 'suspicious': return '#ffc107';
+                    case 'chase': return '#c93a3a';
+                    case 'search': return '#ff9800';
+                    case 'alert': return '#ff0000';
+                    default: return '#ffffff';
+                }
+            }
+        }
+
+        // ===== WORLD INITIALIZATION =====
+        function initializeWorld() {
+            // Create walls (base layout)
+            walls = [
+                // Outer walls
+                { x: 0, y: 0, width: WORLD_WIDTH, height: 40 },
+                { x: 0, y: 0, width: 40, height: WORLD_HEIGHT },
+                { x: WORLD_WIDTH - 40, y: 0, width: 40, height: WORLD_HEIGHT },
+                { x: 0, y: WORLD_HEIGHT - 40, width: WORLD_WIDTH, height: 40 },
+                
+                // Interior walls creating rooms and corridors
+                { x: 400, y: 200, width: 40, height: 400 },
+                { x: 800, y: 400, width: 40, height: 600 },
+                { x: 1200, y: 200, width: 40, height: 400 },
+                { x: 1600, y: 400, width: 40, height: 600 },
+                { x: 400, y: 800, width: 400, height: 40 },
+                { x: 1200, y: 800, width: 400, height: 40 },
+                { x: 600, y: 1200, width: 600, height: 40 }
+            ];
+
+            // Create hiding spots
+            hidingSpots = [];
+            const hidingSpotPositions = [
+                { x: 300, y: 500 },
+                { x: 1000, y: 700 },
+                { x: 1800, y: 500 },
+                { x: 1400, y: 1100 }
+            ];
+
+            for (let i = 0; i < Math.min(window.gameConfig.environment.hidingSpotCount, hidingSpotPositions.length); i++) {
+                hidingSpots.push({
+                    x: hidingSpotPositions[i].x,
+                    y: hidingSpotPositions[i].y,
+                    radius: 32
+                });
+            }
+
+            // Create alarm terminal
+            alarmTerminal = {
+                x: 1200,
+                y: 600,
+                width: 48,
+                height: 48,
+                triggered: false
+            };
+
+            // Create extraction zone
+            extractionZone = {
+                x: WORLD_WIDTH - 200,
+                y: 100,
+                width: 100,
+                height: 100
+            };
+
+            // Create guards with patrol routes
+            guards = [];
+            const guardPatrols = [
+                [{ x: 200, y: 300 }, { x: 600, y: 300 }, { x: 600, y: 700 }, { x: 200, y: 700 }],
+                [{ x: 1000, y: 300 }, { x: 1400, y: 300 }, { x: 1400, y: 700 }, { x: 1000, y: 700 }],
+                [{ x: 1800, y: 300 }, { x: 2200, y: 300 }, { x: 2200, y: 700 }, { x: 1800, y: 700 }],
+                [{ x: 600, y: 1000 }, { x: 1000, y: 1000 }, { x: 1000, y: 1400 }, { x: 600, y: 1400 }],
+                [{ x: 1400, y: 1000 }, { x: 1800, y: 1000 }, { x: 1800, y: 1400 }, { x: 1400, y: 1400 }],
+                [{ x: 2000, y: 200 }, { x: 2200, y: 200 }, { x: 2200, y: 400 }, { x: 2000, y: 400 }]
+            ];
+
+            for (let i = 0; i < Math.min(window.gameConfig.guards.count, guardPatrols.length); i++) {
+                const patrol = guardPatrols[i];
+                guards.push(new Guard(patrol[0].x, patrol[0].y, patrol));
+            }
+
+            // Create navigation grid
+            createNavigationGrid();
+
+            // Reset player
+            player.x = 200;
+            player.y = 1400;
+            player.health = window.gameConfig.player.health;
+            player.maxHealth = window.gameConfig.player.health;
+            player.hiding = false;
+            player.currentHidingSpot = null;
+            player.attacking = false;
+            player.attackCooldown = 0;
+
+            // Reset metrics
+            adaptiveMetrics = {
+                timeUndetected: 0,
+                guardsDefeated: 0,
+                detectionCount: 0,
+                survivalTime: 0,
+                lastAdaptiveUpdate: 0
+            };
+
+            alarmActive = false;
+            alarmCooldown = 0;
+        }
+
+        // ===== INPUT HANDLING =====
+        function setupInputHandlers() {
+            // Keyboard
+            window.addEventListener('keydown', (e) => {
+                if (!gameRunning || currentMode !== 'play') return;
+                keys[e.key.toLowerCase()] = true;
+                
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    attackPressed = true;
+                }
+                if (e.key.toLowerCase() === 'e') {
+                    hidePressed = true;
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+
+            // Mobile joystick
+            const joystickArea = document.getElementById('joystickArea');
+            const joystickBase = document.getElementById('joystickBase');
+            const joystickStick = document.getElementById('joystickStick');
+
+            joystickArea.addEventListener('touchstart', (e) => {
+                if (!gameRunning || currentMode !== 'play') return;
+                e.preventDefault();
+                
+                const touch = e.touches[0];
+                joystick.active = true;
+                joystick.touchId = touch.identifier;
+                joystick.baseX = touch.clientX;
+                joystick.baseY = touch.clientY;
+                joystick.stickX = 0;
+                joystick.stickY = 0;
+
+                joystickBase.style.display = 'block';
+                joystickBase.style.left = (touch.clientX - 60) + 'px';
+                joystickBase.style.top = (touch.clientY - 60) + 'px';
+            });
+
+            joystickArea.addEventListener('touchmove', (e) => {
+                if (!joystick.active) return;
+                e.preventDefault();
+
+                for (let touch of e.touches) {
+                    if (touch.identifier === joystick.touchId) {
+                        const dx = touch.clientX - joystick.baseX;
+                        const dy = touch.clientY - joystick.baseY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const maxDistance = 50;
+
+                        if (distance > maxDistance) {
+                            joystick.stickX = (dx / distance) * maxDistance;
+                            joystick.stickY = (dy / distance) * maxDistance;
+                        } else {
+                            joystick.stickX = dx;
+                            joystick.stickY = dy;
+                        }
+
+                        joystickStick.style.transform = 
+                            `translate(calc(-50% + ${joystick.stickX}px), calc(-50% + ${joystick.stickY}px))`;
+                        break;
+                    }
+                }
+            });
+
+            joystickArea.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                for (let touch of e.changedTouches) {
+                    if (touch.identifier === joystick.touchId) {
+                        joystick.active = false;
+                        joystick.touchId = null;
+                        joystick.stickX = 0;
+                        joystick.stickY = 0;
+                        joystickBase.style.display = 'none';
+                        joystickStick.style.transform = 'translate(-50%, -50%)';
+                        break;
+                    }
+                }
+            });
+
+            // Action buttons
+            const sprintBtn = document.getElementById('sprintBtn');
+            const attackBtn = document.getElementById('attackBtn');
+            const hideBtn = document.getElementById('hideBtn');
+
+            sprintBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                sprintPressed = !sprintPressed;
+                sprintBtn.classList.toggle('active', sprintPressed);
+            });
+
+            attackBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                attackPressed = true;
+            });
+
+            hideBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                hidePressed = true;
+            });
+
+            // Restart button
+            document.getElementById('restartBtn').addEventListener('click', () => {
+                document.getElementById('gameOver').classList.remove('show', 'win', 'lose');
+                initializeWorld();
+                gameRunning = true;
+            });
+
+            // Prevent context menu
+            canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        }
+
+        // ===== PLAYER UPDATE =====
+        function updatePlayer(deltaTime) {
+            // Handle input
+            let moveX = 0;
+            let moveY = 0;
+
+            // Keyboard input
+            if (keys['w'] || keys['arrowup']) moveY -= 1;
+            if (keys['s'] || keys['arrowdown']) moveY += 1;
+            if (keys['a'] || keys['arrowleft']) moveX -= 1;
+            if (keys['d'] || keys['arrowright']) moveX += 1;
+
+            // Joystick input
+            if (joystick.active) {
+                const deadzone = 10;
+                if (Math.abs(joystick.stickX) > deadzone) {
+                    moveX = joystick.stickX / 50;
+                }
+                if (Math.abs(joystick.stickY) > deadzone) {
+                    moveY = joystick.stickY / 50;
+                }
+            }
+
+            // Sprint
+            player.sprinting = keys['shift'] || sprintPressed;
+
+            // Normalize movement
+            if (moveX !== 0 || moveY !== 0) {
+                const length = Math.sqrt(moveX * moveX + moveY * moveY);
+                moveX /= length;
+                moveY /= length;
+
+                // Update facing direction
+                player.facing = Math.atan2(moveY, moveX);
+
+                // Move player
+                const speed = player.sprinting ? 
+                    window.gameConfig.player.sprintSpeed : 
+                    window.gameConfig.player.speed;
+                
+                const newX = player.x + moveX * speed * deltaTime;
+                const newY = player.y + moveY * speed * deltaTime;
+
+                // Collision detection
+                const playerRect = { 
+                    x: newX - player.width / 2, 
+                    y: newY - player.height / 2, 
+                    width: player.width, 
+                    height: player.height 
+                };
+
+                let collided = false;
+                for (const wall of walls) {
+                    if (rectIntersect(playerRect, wall)) {
+                        collided = true;
+                        break;
+                    }
+                }
+
+                if (!collided) {
+                    player.x = newX;
+                    player.y = newY;
+                }
+
+                // Create noise if sprinting
+                if (player.sprinting) {
+                    noiseEvents.push({
+                        x: player.x,
+                        y: player.y,
+                        radius: window.gameConfig.guards.hearingRange,
+                        time: Date.now()
+                    });
+                }
+
+                // Exit hiding when moving
+                if (player.hiding) {
+                    player.hiding = false;
+                    player.currentHidingSpot = null;
+                }
+            }
+
+            // Attack
+            player.attackCooldown = Math.max(0, player.attackCooldown - deltaTime);
+            if (attackPressed && player.attackCooldown <= 0) {
+                player.attacking = true;
+                player.attackCooldown = 1.0;
+                playSound('attack_sound', 0.6);
+
+                // Create noise
+                noiseEvents.push({
+                    x: player.x,
+                    y: player.y,
+                    radius: 100,
+                    time: Date.now()
+                });
+
+                // Check if hit any guards
+                for (const guard of guards) {
+                    if (guard.defeated) continue;
+                    const dist = distance(player.x, player.y, guard.x, guard.y);
+                    if (dist < 50) {
+                        guard.defeated = true;
+                        adaptiveMetrics.guardsDefeated++;
+                    }
+                }
+
+                setTimeout(() => { player.attacking = false; }, 200);
+            }
+            attackPressed = false;
+
+            // Hide
+            if (hidePressed) {
+                for (const spot of hidingSpots) {
+                    const dist = distance(player.x, player.y, spot.x, spot.y);
+                    if (dist < spot.radius) {
+                        player.hiding = !player.hiding;
+                        player.currentHidingSpot = player.hiding ? spot : null;
+                        break;
+                    }
+                }
+            }
+            hidePressed = false;
+
+            // Update hide button visibility
+            let nearHidingSpot = false;
+            for (const spot of hidingSpots) {
+                const dist = distance(player.x, player.y, spot.x, spot.y);
+                if (dist < spot.radius + 20) {
+                    nearHidingSpot = true;
+                    break;
+                }
+            }
+            document.getElementById('hideBtn').style.display = nearHidingSpot ? 'flex' : 'none';
+
+            // Check extraction zone
+            if (rectIntersect(
+                { x: player.x - player.width / 2, y: player.y - player.height / 2, 
+                  width: player.width, height: player.height },
+                extractionZone
+            )) {
+                endGame(true);
+            }
+
+            // Check health
+            if (player.health <= 0) {
+                endGame(false);
+            }
+        }
+
+        // ===== GAME UPDATE =====
+        function updateGame(deltaTime) {
+            // Update player
+            updatePlayer(deltaTime);
+
+            // Update guards
+            let activeGuards = 0;
+            for (const guard of guards) {
+                if (!guard.defeated) {
+                    guard.update(deltaTime);
+                    activeGuards++;
+                }
+            }
+
+            // Update adaptive metrics
+            adaptiveMetrics.survivalTime += deltaTime;
+            
+            let anyGuardChasing = false;
+            for (const guard of guards) {
+                if (guard.state === 'chase' || guard.state === 'alert') {
+                    anyGuardChasing = true;
+                    break;
+                }
+            }
+            
+            if (!anyGuardChasing) {
+                adaptiveMetrics.timeUndetected += deltaTime;
+            }
+
+            // Clear old noise events
+            noiseEvents = noiseEvents.filter(n => Date.now() - n.time < 500);
+
+            // Update alarm
+            alarmCooldown = Math.max(0, alarmCooldown - deltaTime);
+
+            // Check alarm trigger
+            if (!alarmTerminal.triggered && alarmCooldown <= 0) {
+                const distToAlarm = distance(player.x, player.y, 
+                    alarmTerminal.x + alarmTerminal.width / 2, 
+                    alarmTerminal.y + alarmTerminal.height / 2);
+                
+                if (distToAlarm < 60) {
+                    // Player near alarm - could add interaction key
+                }
+
+                // Guards can trigger alarm when chasing
+                for (const guard of guards) {
+                    if (guard.state === 'chase') {
+                        const guardDistToAlarm = distance(guard.x, guard.y,
+                            alarmTerminal.x + alarmTerminal.width / 2,
+                            alarmTerminal.y + alarmTerminal.height / 2);
+                        
+                        if (guardDistToAlarm < 100) {
+                            triggerAlarm();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Update camera
+            camera.x = player.x - VIEWPORT_WIDTH / 2;
+            camera.y = player.y - VIEWPORT_HEIGHT / 2;
+            camera.x = Math.max(0, Math.min(camera.x, WORLD_WIDTH - VIEWPORT_WIDTH));
+            camera.y = Math.max(0, Math.min(camera.y, WORLD_HEIGHT - VIEWPORT_HEIGHT));
+
+            // Update UI
+            const healthPercent = (player.health / player.maxHealth);
+            document.getElementById('healthFill').style.width = (healthPercent * 120) + 'px';
+            document.getElementById('timeDisplay').textContent = 
+                `Time: ${Math.floor(adaptiveMetrics.survivalTime)}s`;
+            document.getElementById('detectionDisplay').textContent = 
+                `Detected: ${adaptiveMetrics.detectionCount}`;
+        }
+
+        function triggerAlarm() {
+            alarmTerminal.triggered = true;
+            alarmActive = true;
+            alarmCooldown = 30;
+            playSound('alarm_siren', 0.4, true);
+
+            // Spawn reinforcements
+            const spawnPoints = [
+                { x: 1000, y: 200 },
+                { x: 1400, y: 200 }
+            ];
+
+            for (let i = 0; i < window.gameConfig.environment.reinforcementCount; i++) {
+                if (i < spawnPoints.length) {
+                    const spawn = spawnPoints[i];
+                    const patrol = [
+                        { x: spawn.x, y: spawn.y },
+                        { x: spawn.x + 200, y: spawn.y },
+                        { x: spawn.x + 200, y: spawn.y + 200 },
+                        { x: spawn.x, y: spawn.y + 200 }
+                    ];
+                    guards.push(new Guard(spawn.x, spawn.y, patrol));
+                }
+            }
+
+            // Alert all guards
+            for (const guard of guards) {
+                if (!guard.defeated && guard.state === 'patrol') {
+                    guard.setState('suspicious');
+                    guard.target = { x: player.x, y: player.y };
+                }
+            }
+        }
+
+        function endGame(won) {
+            gameRunning = false;
+            const gameOverDiv = document.getElementById('gameOver');
+            const titleDiv = document.getElementById('gameOverTitle');
+            const statsDiv = document.getElementById('gameOverStats');
+
+            if (won) {
+                gameOverDiv.classList.add('show', 'win');
+                titleDiv.textContent = 'Mission Complete!';
+                statsDiv.innerHTML = `
+                    Time: ${Math.floor(adaptiveMetrics.survivalTime)}s<br>
+                    Guards Defeated: ${adaptiveMetrics.guardsDefeated}<br>
+                    Times Detected: ${adaptiveMetrics.detectionCount}
+                `;
+            } else {
+                gameOverDiv.classList.add('show', 'lose');
+                titleDiv.textContent = 'Mission Failed';
+                statsDiv.innerHTML = `
+                    Survived: ${Math.floor(adaptiveMetrics.survivalTime)}s<br>
+                    Guards Defeated: ${adaptiveMetrics.guardsDefeated}<br>
+                    Times Detected: ${adaptiveMetrics.detectionCount}
+                `;
+            }
+        }
+
+        // ===== RENDERING =====
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Save context
+            ctx.save();
+
+            // Apply camera transform
+            ctx.translate(-camera.x, -camera.y);
+
+            // Draw floor
+            ctx.fillStyle = '#5a5a5a';
+            ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+            // Draw walls
+            ctx.fillStyle = '#3a3a3a';
+            for (const wall of walls) {
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+            }
+
+            // Draw hiding spots
+            for (const spot of hidingSpots) {
+                if (assetCache['hiding_spot_bush']) {
+                    const img = assetCache['hiding_spot_bush'];
+                    ctx.drawImage(img, spot.x - 32, spot.y - 32, 64, 64);
+                } else {
+                    ctx.fillStyle = '#2a3a2a';
+                    ctx.beginPath();
+                    ctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Draw alarm terminal
+            if (assetCache['alarm_terminal']) {
+                const img = assetCache['alarm_terminal'];
+                ctx.drawImage(img, alarmTerminal.x, alarmTerminal.y, 
+                    alarmTerminal.width, alarmTerminal.height);
+            } else {
+                ctx.fillStyle = alarmTerminal.triggered ? '#ff0000' : '#c93a3a';
+                ctx.fillRect(alarmTerminal.x, alarmTerminal.y, 
+                    alarmTerminal.width, alarmTerminal.height);
+            }
+
+            // Draw extraction zone
+            if (assetCache['extraction_marker']) {
+                const img = assetCache['extraction_marker'];
+                ctx.drawImage(img, extractionZone.x, extractionZone.y, 
+                    extractionZone.width, extractionZone.height);
+            } else {
+                ctx.fillStyle = 'rgba(74, 201, 58, 0.3)';
+                ctx.fillRect(extractionZone.x, extractionZone.y, 
+                    extractionZone.width, extractionZone.height);
+                ctx.strokeStyle = '#4ac93a';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(extractionZone.x, extractionZone.y, 
+                    extractionZone.width, extractionZone.height);
+            }
+
+            // Draw guards and vision cones
+            for (const guard of guards) {
+                if (guard.defeated) continue;
+
+                // Draw vision cone
+                const visionRange = window.gameConfig.guards.visionRange * guard.getAdaptiveVisionMultiplier();
+                const visionAngle = window.gameConfig.guards.visionAngle * Math.PI / 180;
+                
+                ctx.fillStyle = guard.getStateColor() + '40';
+                ctx.strokeStyle = guard.getStateColor();
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(guard.x, guard.y);
+                ctx.arc(guard.x, guard.y, visionRange, 
+                    guard.facing - visionAngle / 2, 
+                    guard.facing + visionAngle / 2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw guard
+                ctx.save();
+                ctx.translate(guard.x, guard.y);
+                ctx.rotate(guard.facing);
+                
+                if (assetCache['guard_character']) {
+                    const img = assetCache['guard_character'];
+                    ctx.drawImage(img, -guard.width / 2, -guard.height / 2, 
+                        guard.width, guard.height);
+                } else {
+                    ctx.fillStyle = '#6b7c3a';
+                    ctx.fillRect(-guard.width / 2, -guard.height / 2, 
+                        guard.width, guard.height);
+                }
+                
+                ctx.restore();
+
+                // Draw state indicator
+                ctx.strokeStyle = guard.getStateColor();
+                ctx.lineWidth = 3;
+                ctx.strokeRect(guard.x - guard.width / 2 - 2, 
+                    guard.y - guard.height / 2 - 2, 
+                    guard.width + 4, guard.height + 4);
+            }
+
+            // Draw player
+            if (!player.hiding || (Date.now() % 500 < 250)) {
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                ctx.rotate(player.facing);
+                
+                if (assetCache['player_character']) {
+                    const img = assetCache['player_character'];
+                    ctx.drawImage(img, -player.width / 2, -player.height / 2, 
+                        player.width, player.height);
+                } else {
+                    ctx.fillStyle = '#4a7c9e';
+                    ctx.fillRect(-player.width / 2, -player.height / 2, 
+                        player.width, player.height);
+                }
+                
+                ctx.restore();
+
+                // Draw attack animation
+                if (player.attacking) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(player.x + Math.cos(player.facing) * 30, 
+                        player.y + Math.sin(player.facing) * 30, 
+                        20, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
+            // Draw noise radius if sprinting
+            if (player.sprinting) {
+                ctx.strokeStyle = 'rgba(255, 100, 100, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, window.gameConfig.guards.hearingRange, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Draw noise events
+            for (const noise of noiseEvents) {
+                const age = Date.now() - noise.time;
+                const alpha = 1 - (age / 500);
+                ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.5})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(noise.x, noise.y, noise.radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // ===== GAME LOOP =====
+        function gameLoop(currentTime) {
+            const deltaTime = Math.min((currentTime - lastTime) / 1000, MAX_DELTA);
+            lastTime = currentTime;
+
+            if (gameRunning && currentMode === 'play') {
+                updateGame(deltaTime);
+            }
+
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ===== ASSET LOADING =====
+        async function preloadAssets() {
+            const imageAssets = ['player_character', 'guard_character', 'hiding_spot_bush', 
+                'alarm_terminal', 'extraction_marker'];
+            const audioAssets = ['alert_sound', 'footstep_sound', 'attack_sound', 
+                'alarm_siren', 'background_music'];
+
+            // Load images
+            const imagePromises = imageAssets.map(id => {
+                return new Promise((resolve, reject) => {
+                    const assetInfo = lib.getAsset(id);
+                    if (assetInfo && assetInfo.url) {
+                        const img = new Image();
+                        img.onload = () => {
+                            assetCache[id] = img;
+                            resolve();
+                        };
+                        img.onerror = () => {
+                            lib.log(`Failed to load image: ${id}`);
+                            resolve(); // Continue even if asset fails
+                        };
+                        img.src = assetInfo.url;
+                    } else {
+                        resolve();
+                    }
+                });
+            });
+
+            // Load audio
+            const audioPromises = audioAssets.map(id => {
+                return new Promise((resolve, reject) => {
+                    const assetInfo = lib.getAsset(id);
+                    if (assetInfo && assetInfo.url) {
+                        fetch(assetInfo.url)
+                            .then(response => response.arrayBuffer())
+                            .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                            .then(audioBuffer => {
+                                audioBuffers[id] = audioBuffer;
+                                resolve();
+                            })
+                            .catch(err => {
+                                lib.log(`Failed to load audio: ${id}`);
+                                resolve(); // Continue even if asset fails
+                            });
+                    } else {
+                        resolve();
+                    }
+                });
+            });
+
+            await Promise.all([...imagePromises, ...audioPromises]);
+        }
+
+        // ===== MAIN RUN FUNCTION =====
+        async function run(mode) {
+            lib.log('run() called. Mode: ' + mode);
+            currentMode = mode;
+
+            // Initialize canvas
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            canvas.width = VIEWPORT_WIDTH;
+            canvas.height = VIEWPORT_HEIGHT;
+
+            // Show game parameters UI
+            lib.showGameParameters({
+                name: 'Game Settings',
+                params: {
+                    'Guard Count': {
+                        key: 'gameConfig.guards.count',
+                        type: 'slider',
+                        min: 2,
+                        max: 10,
+                        step: 1,
+                        onChange: (value) => {
+                            window.gameConfig.guards.count = value;
+                            if (currentMode === 'play') {
+                                initializeWorld();
+                            }
+                        }
+                    },
+                    'Guard Speed': {
+                        key: 'gameConfig.guards.speed',
+                        type: 'slider',
+                        min: 50,
+                        max: 150,
+                        step: 10,
+                        onChange: (value) => {
+                            window.gameConfig.guards.speed = value;
+                        }
+                    },
+                    'Vision Range': {
+                        key: 'gameConfig.guards.visionRange',
+                        type: 'slider',
+                        min: 100,
+                        max: 300,
+                        step: 20,
+                        onChange: (value) => {
+                            window.gameConfig.guards.visionRange = value;
+                        }
+                    },
+                    'Vision Angle': {
+                        key: 'gameConfig.guards.visionAngle',
+                        type: 'slider',
+                        min: 45,
+                        max: 120,
+                        step: 5,
+                        onChange: (value) => {
+                            window.gameConfig.guards.visionAngle = value;
+                        }
+                    },
+                    'Hearing Range': {
+                        key: 'gameConfig.guards.hearingRange',
+                        type: 'slider',
+                        min: 100,
+                        max: 250,
+                        step: 25,
+                        onChange: (value) => {
+                            window.gameConfig.guards.hearingRange = value;
+                        }
+                    },
+                    'Player Speed': {
+                        key: 'gameConfig.player.speed',
+                        type: 'slider',
+                        min: 80,
+                        max: 120,
+                        step: 10,
+                        onChange: (value) => {
+                            window.gameConfig.player.speed = value;
+                        }
+                    },
+                    'Sprint Speed': {
+                        key: 'gameConfig.player.sprintSpeed',
+                        type: 'slider',
+                        min: 140,
+                        max: 200,
+                        step: 10,
+                        onChange: (value) => {
+                            window.gameConfig.player.sprintSpeed = value;
+                        }
+                    },
+                    'Player Health': {
+                        key: 'gameConfig.player.health',
+                        type: 'slider',
+                        min: 50,
+                        max: 200,
+                        step: 25,
+                        onChange: (value) => {
+                            window.gameConfig.player.health = value;
+                            if (currentMode === 'play') {
+                                player.maxHealth = value;
+                                player.health = Math.min(player.health, value);
+                            }
+                        }
+                    },
+                    'Alert Radius': {
+                        key: 'gameConfig.ai.alertRadius',
+                        type: 'slider',
+                        min: 200,
+                        max: 400,
+                        step: 50,
+                        onChange: (value) => {
+                            window.gameConfig.ai.alertRadius = value;
+                        }
+                    },
+                    'Search Duration': {
+                        key: 'gameConfig.ai.searchDuration',
+                        type: 'slider',
+                        min: 3,
+                        max: 10,
+                        step: 1,
+                        onChange: (value) => {
+                            window.gameConfig.ai.searchDuration = value;
+                        }
+                    },
+                    'Hiding Spots': {
+                        key: 'gameConfig.environment.hidingSpotCount',
+                        type: 'slider',
+                        min: 2,
+                        max: 8,
+                        step: 1,
+                        onChange: (value) => {
+                            window.gameConfig.environment.hidingSpotCount = value;
+                            if (currentMode === 'play') {
+                                initializeWorld();
+                            }
+                        }
+                    },
+                    'Reinforcements': {
+                        key: 'gameConfig.environment.reinforcementCount',
+                        type: 'slider',
+                        min: 1,
+                        max: 4,
+                        step: 1,
+                        onChange: (value) => {
+                            window.gameConfig.environment.reinforcementCount = value;
+                        }
+                    }
+                }
+            });
+
+            // Preload assets
+            await preloadAssets();
+
+            // Setup input handlers
+            setupInputHandlers();
+
+            // Show/hide controls based on device
+            const useTouchControls = lib.shouldUseTouchControls();
+            document.getElementById('mobileControls').style.display = 
+                useTouchControls ? 'block' : 'none';
+            document.getElementById('controlsHelp').classList.toggle('hidden', useTouchControls);
+
+            // Initialize world
+            initializeWorld();
+
+            // Start game loop
+            if (mode === 'play') {
+                gameRunning = true;
+                playSound('background_music', 0.3, true);
+            }
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "guards": {
+    "count": 6,
+    "speed": 100,
+    "visionRange": 200,
+    "visionAngle": 60,
+    "hearingRange": 150
+  },
+  "player": {
+    "speed": 100,
+    "sprintSpeed": 170,
+    "health": 100,
+    "attackDamage": 100
+  },
+  "ai": {
+    "alertRadius": 300,
+    "searchDuration": 5,
+    "adaptiveSpeed": 1
+  },
+  "environment": {
+    "hidingSpotCount": 4,
+    "reinforcementCount": 2
+  }
+}
